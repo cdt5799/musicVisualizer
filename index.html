@@ -1,0 +1,926 @@
+<!doctype html>
+<html>
+<head>
+   <title>Project 1</title>
+   <script>
+   	"use strict";
+   
+   //Control Variables
+	var myRed = 0
+	var myGreen = 255
+	var myBlue = 0
+	var myAlpha = 1
+	var lineNums = 4
+	
+	//All drag and drop and load functions come from:
+	//https://github.com/cbrandolino/local-audio-visualizer
+	window.onload = function() {
+	var element = document.getElementById('container');
+	dropAndLoad(element, init, "ArrayBuffer");
+	createControls();
+	}
+
+	function createControls() {		
+	var redVal = document.querySelector("#RedS");
+	redVal.addEventListener("change", function(e){
+	myRed = e.target.value;
+	});
+	var greenVal = document.querySelector("#GreenS");
+	greenVal.addEventListener("change", function(e){
+	myGreen = e.target.value;
+	});
+	var blueVal = document.querySelector("#BlueS");
+	blueVal.addEventListener("change", function(e){
+	myBlue = e.target.value;
+	});
+	var alphaVal = document.querySelector("#AlphaS");
+	alphaVal.addEventListener("change", function(e){
+	myAlpha = e.target.value;
+	});
+	var lineNum = document.querySelector("#Lines");
+	lineNum.addEventListener("change", function(e){
+	lineNums = e.target.value;
+	});
+	document.querySelector("#Aaron").addEventListener("change", function(e){
+	document.querySelector("#Chelsea").checked = false;
+	document.querySelector("#Basic").checked = false;
+	document.querySelector("#Normal").checked = false;
+	document.querySelector("#Advanced").checked = false;
+	document.querySelector("#Custom").checked = false;
+	});
+	document.querySelector("#Chelsea").addEventListener("change", function(e){
+	document.querySelector("#Aaron").checked = false;
+	document.querySelector("#Basic").checked = false;
+	document.querySelector("#Normal").checked = false;
+	document.querySelector("#Advanced").checked = false;
+	document.querySelector("#Custom").checked = false;
+	});
+	document.querySelector("#Basic").addEventListener("change", function(e){
+	document.querySelector("#Chelsea").checked = false;
+	document.querySelector("#Aaron").checked = false;
+	document.querySelector("#Normal").checked = false;
+	document.querySelector("#Advanced").checked = false;
+	document.querySelector("#Custom").checked = false;
+	});
+	document.querySelector("#Normal").addEventListener("change", function(e){
+	document.querySelector("#Chelsea").checked = false;
+	document.querySelector("#Basic").checked = false;
+	document.querySelector("#Aaron").checked = false;
+	document.querySelector("#Advanced").checked = false;
+	document.querySelector("#Custom").checked = false;
+	});
+	document.querySelector("#Advanced").addEventListener("change", function(e){
+	document.querySelector("#Chelsea").checked = false;
+	document.querySelector("#Basic").checked = false;
+	document.querySelector("#Normal").checked = false;
+	document.querySelector("#Aaron").checked = false;
+	document.querySelector("#Custom").checked = false;
+	});
+	document.querySelector("#Custom").addEventListener("change", function(e){
+	document.querySelector("#Clear").checked = true;
+	document.querySelector("#Chelsea").checked = false;
+	document.querySelector("#Basic").checked = false;
+	document.querySelector("#Normal").checked = false;
+	document.querySelector("#Advanced").checked = false;
+	document.querySelector("#Aaron").checked = false;
+	});
+}
+
+// Reusable dropAndLoad function: it reads a local file dropped on a
+// `dropElement` in the DOM in the specified `readFormat`
+// (In this case, we want an arrayBuffer)
+function dropAndLoad(dropElement, callback, readFormat) {
+  var readFormat = readFormat || "DataUrl"
+
+  dropElement.addEventListener('dragover', function(e) {
+    e.stopPropagation()
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }, false)
+
+  dropElement.addEventListener('drop', function(e) {
+    e.stopPropagation()
+    e.preventDefault()
+    loadFile(e.dataTransfer.files[0])
+  }, false) 
+
+  function loadFile(files) {
+    var file = files
+    var reader = new FileReader()
+    reader.onload = function(e) {
+      callback(e.target.result)
+    }
+    reader['readAs'+readFormat](file)
+  }
+}
+
+// Once the file is loaded, we start getting our hands dirty.
+function init(arrayBuffer) {
+  document.getElementById('text').innerHTML = 'Please Wait'
+  // Create a new `audioContext` and its `analyser`
+  window.audioCtx = new AudioContext()
+  window.analyser = audioCtx.createAnalyser()
+  // If a sound is still playing, stop it.
+  if (window.source)
+    source.stop(0)
+  // Decode the data in our array into an audio buffer
+  audioCtx.decodeAudioData(arrayBuffer, function(buffer) {
+    // Use the audio buffer with as our audio source
+    window.source = audioCtx.createBufferSource()   
+    source.buffer = buffer
+    // Connect to the analyser ...
+    source.connect(analyser)
+    // and back to the destination, to play the sound after the analysis.
+    analyser.connect(audioCtx.destination)
+    // Start playing the buffer.
+    source.start(0)
+    // Initialize a visualizer object
+    var viz = new simpleViz()
+    // Finally, initialize the visualizer.
+    new visualizer(viz['update'], analyser)
+    document.getElementById('text').innerHTML = 'Drag and drop an mp3 file inside the white square to see and interact with visual effects. Once you have dragged an mp3 file start playing with the visuals by checking some boxes.';
+  })
+}
+
+//Function to create a color using sliders or just inputed levels.
+function getColor(Reds, Greens, Blues, Alphas){
+   	var color='rgba('+Reds+','+Greens+','+Blues+', '+Alphas+')';
+   	return color;
+}
+
+// returns a random color of alpha 1.0
+// http://paulirish.com/2009/random-hex-color-code-snippets/
+function getRandomColor(){
+   		var red = Math.round(Math.random()*254+1);
+   		var green = Math.round(Math.random()*254+1);
+   		var blue=Math.round(Math.random()*254+1);
+   		var color='rgb('+red+','+green+','+blue+')';
+   		//	var color='rgba('+red+','+green+','+blue+',0.50)'; // 0.50 alpha
+   		return color;
+}
+
+// The visualizer object. 
+// Calls the `visualization` function every time a new frame
+// is available.
+// Is passed an `analyser` (audioContext analyser).
+function visualizer(visualization, analyser) {
+  var self = this
+  this.visualization = visualization  
+  var last = Date.now()
+  var loop = function() {
+    var dt = Date.now() - last
+    // we get the current byteFreq data from our analyser
+    var byteFreq = new Uint8Array(analyser.frequencyBinCount)
+    analyser.getByteFrequencyData(byteFreq)
+    last = Date.now()
+    // We might want to use a delta time (`dt`) too for our visualization.
+    self.visualization(byteFreq, dt)
+    webkitRequestAnimationFrame(loop)
+  }
+  webkitRequestAnimationFrame(loop)
+}
+
+// A simple visualization. Its update function illustrates how to use 
+// the byte frequency data from an audioContext analyser.
+function simpleViz(canvas) {
+	var self = this;
+	this.canvas = document.getElementById('canvas');
+	this.ctx = this.canvas.getContext("2d");
+	this.curveLength = 50;
+	this.curves = lineNums;
+	this.triBase = 2;
+	this.triGap = 0;
+	this.Tris = Math.floor((this.canvas.width/2) / (this.triBase + this.triGap));
+	var n = 0;
+	var t = 0;
+	var u = 0;
+	// This function is launched for each frame, together with the byte frequency data.
+	this.update = function(byteFreq) {
+	self.curves = lineNums;
+	if(document.querySelector("#Clear").checked == true)
+	{
+	self.ctx.clearRect(0, 0, self.canvas.width, self.canvas.height);
+	}
+	self.ctx.strokeStyle = getColor(myRed, myGreen, myBlue, myAlpha);
+	var color = getColor(myRed, myGreen, myBlue, myAlpha);
+	var MidCirc = Math.floor(byteFreq.length / 100);	
+	var BlurCirc = Math.floor(byteFreq.length / 20);
+	var Square = Math.floor(byteFreq.length / 4);
+	var Squares = Math.floor(byteFreq.length / 50);
+	var curveF = Math.floor(byteFreq.length / self.curves);
+	var triStep = Math.floor(byteFreq.length / self.Tris);
+	if (n >= 450)
+	{
+	n = 0;
+	}
+	if (t >= 300)
+	{
+	t = 0;
+	}
+	if (u >= 5000)
+	{
+	u = 0;
+	}
+	n = n + 16;
+	u = u + 16;
+	t =  t + (16 * (3/4.5));
+	if(document.querySelector("#Aaron").checked == true)
+	{
+	document.querySelector("#Clear").checked = false;
+	self.ctx.globalCompositeOperation = 'source-over';
+	//Circles
+	for (var i = 0; i < MidCirc; i ++) {
+		self.ctx.globalAlpha = 0.03;
+		var CircRad = byteFreq[i*MidCirc]
+		self.ctx.fillStyle= getColor(255, 255, 255, 1);
+		
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width - Math.random()*1000, self.canvas.height - Math.random()*600, (CircRad/20), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+	for (var i = 0; i < 4; i ++) {
+		self.ctx.globalAlpha = 0.1;
+		var CircRad = byteFreq[i*MidCirc]
+		self.ctx.fillStyle = getColor(myRed, myGreen, myBlue, myAlpha);
+		
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width/2, self.canvas.height/2, (CircRad * 2), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+	
+	self.ctx.globalAlpha = 1;
+	//Triangles
+	for (var i = 0; i < self.Tris; i ++) {
+		var triHeight = byteFreq[i*triStep] * 1.5;
+
+		self.ctx.beginPath();
+		self.ctx.moveTo(i * (self.triBase + self.triGap),self.canvas.height + 100)
+		self.ctx.lineTo(i * (self.triBase + self.triGap) + (self.triBase/2),self.canvas.height - (triHeight* 5))
+		self.ctx.lineTo(i * (self.triBase + self.triGap) + (self.triBase), self.canvas.height + 5)
+		self.ctx.lineTo(i * (self.triBase + self.triGap), self.canvas.height + 100)
+		self.ctx.fillStyle = getColor( 1.5 * i, 255 - (1.5 * i), 255 - (1.5 * i), 1);
+		
+		self.ctx.fill();
+		self.ctx.closePath();
+    }
+	for (var i = 0; i < self.Tris; i ++) {
+		var triHeight = byteFreq[i*triStep] * 1.5;
+		
+		self.ctx.beginPath();
+		self.ctx.moveTo(self.canvas.width - (i * (self.triBase + self.triGap)),self.canvas.height + 100)
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap) + (self.triBase/2)),self.canvas.height - (triHeight* 5))
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap) + (self.triBase)), self.canvas.height + 5)
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap)), self.canvas.height + 100)
+		self.ctx.fillStyle = getColor( 1.5 * i, 255 - (1.5 * i), 255 - (1.5 * i), 1);
+		
+		self.ctx.fill();
+		self.ctx.closePath();
+    }
+	
+	//Bezier Curves
+	self.ctx.globalAlpha = .2;
+	self.ctx.globalCompositeOperation = 'lighter';
+	for (var i = 0; i < 40; i ++) {
+		var curveHeight = byteFreq[i*curveF] * 1.5;
+		if(byteFreq[i*curveF] > 0)
+		{
+		self.ctx.beginPath();
+		self.ctx.moveTo(450, 0);
+		self.ctx.bezierCurveTo(
+		
+		450 - (curveHeight * 5),
+		
+		(curveHeight/4) * 2,
+		
+		450 + (curveHeight * 5),
+		
+		((curveHeight * 3)/4) * 2,
+		
+		450,
+		
+		600);
+		self.ctx.moveTo(450, 0);
+		self.ctx.bezierCurveTo(
+		
+		450 + (curveHeight * 5),
+		
+		(curveHeight/4) * 2,
+		
+		450 - (curveHeight * 5),
+		
+		((curveHeight * 3)/4) * 2,
+		
+		450,
+		
+		600);
+		
+		self.ctx.lineWidth = 2;
+		self.ctx.stroke();
+		self.ctx.closePath();	
+		}
+	}
+	
+	//Blur Circles
+	for (var i = 0; i < BlurCirc; i ++) {
+		var WCRad = byteFreq[i*BlurCirc] * 1.5
+		self.ctx.fillStyle= "#FFFFFF";
+		
+		self.ctx.globalAlpha = 0.02;
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width/2, self.canvas.height/2, (WCRad * 2), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+	
+	//Timed Squares
+	for (var i = 0; i < 4; i ++) {
+		var squareLength = byteFreq[i*Square] * 1.5
+		self.ctx.fillStyle= "#0000FF";
+		self.ctx.globalAlpha = .2;
+		
+		self.ctx.fillRect(0 + n,0 + t,20,20);
+		if(i == 1)
+		{
+		self.ctx.fillRect(0 + n,(600 - t) - 20,20,20);
+		}
+		if(i == 2)
+		{
+		self.ctx.fillRect((900 - n) - 20,(600 - t) - 20,20,20);
+		}
+		if(i == 3)
+		{
+		self.ctx.fillRect((900 - n) - 20,0 + t,20,20);
+		}
+		
+	}
+	
+	//Squares
+	for (var i = 0; i < 45; i ++) {
+		var squareLength = byteFreq[i*Squares]
+		self.ctx.fillStyle= getColor(((i * squareLength/6))/2, 255-((i * squareLength/6)/2), 0, 1);
+		self.ctx.globalAlpha = 1;
+		
+		self.ctx.fillRect(i * 10,600 - (((i * squareLength/6)) * .8),10,20);
+		
+	}
+	for (var i = 0; i < 45; i ++) {
+		var squareLength = byteFreq[i*Squares]
+		self.ctx.fillStyle= getColor(((i * squareLength/6))/2, 255-((i * squareLength/6)/2), 0, 1);
+		self.ctx.globalAlpha = 1;
+		
+		self.ctx.fillRect(900- (i * 10),600 - (((i * squareLength/6)) * .8),10,20);
+		
+	}
+	}
+	if(document.querySelector("#Basic").checked == true)
+	{
+		//Circles
+		for (var i = 0; i < 4; i ++) {
+			self.ctx.globalAlpha = 0.1;
+			var CircRad = byteFreq[i*MidCirc];
+			self.ctx.fillStyle= getColor(0, 255, 155, 1);
+		
+			self.ctx.beginPath();
+			self.ctx.arc(self.canvas.width/2, self.canvas.height/2, (CircRad * 2), 0, 2 * Math.PI, false);
+			self.ctx.fill();
+			self.ctx.closePath();
+		}
+		//Bezier Curves
+		self.ctx.globalAlpha = .2;
+		self.ctx.globalCompositeOperation = 'lighter';
+		for (var i = 0; i < 40; i ++) {
+		var curveHeight = byteFreq[i*curveF] * 1.5;
+		if(byteFreq[i*curveF] > 0)
+		{
+		self.ctx.beginPath();
+		self.ctx.moveTo(450, 0);
+		self.ctx.bezierCurveTo(
+		
+		450 - (curveHeight * 5),
+		
+		(curveHeight/4) * 2,
+		
+		450 + (curveHeight * 5),
+		
+		((curveHeight * 3)/4) * 2,
+		
+		450,
+		
+		600);
+		self.ctx.moveTo(450, 0);
+		self.ctx.bezierCurveTo(
+		
+		450 + (curveHeight * 5),
+		
+		(curveHeight/4) * 2,
+		
+		450 - (curveHeight * 5),
+		
+		((curveHeight * 3)/4) * 2,
+		
+		450,
+		
+		600);
+		
+		self.ctx.lineWidth = 2;
+		self.ctx.stroke();
+		self.ctx.closePath();	
+		}
+	}
+	}
+	if(document.querySelector("#Normal").checked == true)
+	{
+		self.ctx.globalAlpha = 1;
+		//Triangles
+		for (var i = 0; i < self.Tris; i ++) {
+		var triHeight = byteFreq[i*triStep] * 1.5;
+
+		self.ctx.beginPath();
+		self.ctx.moveTo(i * (self.triBase + self.triGap),self.canvas.height + 100)
+		self.ctx.lineTo(i * (self.triBase + self.triGap) + (self.triBase/2),self.canvas.height - (triHeight* 5))
+		self.ctx.lineTo(i * (self.triBase + self.triGap) + (self.triBase), self.canvas.height + 5)
+		self.ctx.lineTo(i * (self.triBase + self.triGap), self.canvas.height + 100)
+		self.ctx.fillStyle = getColor( 1.5 * i, 255 - (1.5 * i), 255 - (1.5 * i), 1);
+		
+		self.ctx.fill();
+		self.ctx.closePath();
+    }
+		for (var i = 0; i < self.Tris; i ++) {
+		var triHeight = byteFreq[i*triStep] * 1.5;
+		
+		self.ctx.beginPath();
+		self.ctx.moveTo(self.canvas.width - (i * (self.triBase + self.triGap)),self.canvas.height + 100)
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap) + (self.triBase/2)),self.canvas.height - (triHeight* 5))
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap) + (self.triBase)), self.canvas.height + 5)
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap)), self.canvas.height + 100)
+		self.ctx.fillStyle = getColor( 1.5 * i, 255 - (1.5 * i), 255 - (1.5 * i), 1);
+		
+		self.ctx.fill();
+		self.ctx.closePath();
+    }
+		for (var i = 0; i < 4; i ++) {
+		self.ctx.globalAlpha = 0.1;
+		var CircRad = byteFreq[i*MidCirc]
+		self.ctx.fillStyle = getColor(myRed, myGreen, myBlue, myAlpha);
+		
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width/2, self.canvas.height/2, (CircRad * 2), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+	}
+	if(document.querySelector("#Advanced").checked == true)
+	{
+		for (var i = 0; i < 50; i ++) {
+		var squareLength = byteFreq[i*Squares]
+		self.ctx.fillStyle= getColor(((i * squareLength/6))/2, 255-((i * squareLength/6)/2), 0, 1);
+		self.ctx.globalAlpha = 1;
+		
+		self.ctx.fillRect(i * 10,600 - (((i * squareLength/6)) * .8),10,20);
+		
+	}
+		for (var i = 0; i < 50; i ++) {
+		var squareLength = byteFreq[i*Squares]
+		self.ctx.fillStyle= getColor(((i * squareLength/6))/2, 255-((i * squareLength/6)/2), 0, 1);
+		self.ctx.globalAlpha = 1;
+		
+		self.ctx.fillRect(1000- (i * 10),600 - (((i * squareLength/6)) * .8),10,20);
+		
+	}
+		self.ctx.globalAlpha = .2;
+		//Triangles
+		for (var i = 0; i < self.Tris; i ++) {
+		var triHeight = byteFreq[i*triStep] * 1.5;
+
+		self.ctx.beginPath();
+		self.ctx.moveTo(i * (self.triBase + self.triGap),self.canvas.height + 100)
+		self.ctx.lineTo(i * (self.triBase + self.triGap) + (self.triBase/2),self.canvas.height - (triHeight* 5))
+		self.ctx.lineTo(i * (self.triBase + self.triGap) + (self.triBase), self.canvas.height + 5)
+		self.ctx.lineTo(i * (self.triBase + self.triGap), self.canvas.height + 100)
+		self.ctx.fillStyle = getColor( 1.5 * i, 255 - (1.5 * i), 255 - (1.5 * i), 1);
+		
+		self.ctx.fill();
+		self.ctx.closePath();
+    }
+		for (var i = 0; i < self.Tris; i ++) {
+		var triHeight = byteFreq[i*triStep] * 1.5;
+		
+		self.ctx.beginPath();
+		self.ctx.moveTo(self.canvas.width - (i * (self.triBase + self.triGap)),self.canvas.height + 100)
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap) + (self.triBase/2)),self.canvas.height - (triHeight* 5))
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap) + (self.triBase)), self.canvas.height + 5)
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap)), self.canvas.height + 100)
+		self.ctx.fillStyle = getColor( 1.5 * i, 255 - (1.5 * i), 255 - (1.5 * i), 1);
+		
+		self.ctx.fill();
+		self.ctx.closePath();
+    }
+		for (var i = 0; i < BlurCirc; i ++) {
+		var WCRad = byteFreq[i*BlurCirc] * 1.5
+		self.ctx.fillStyle= "#FFFFFF";
+		
+		self.ctx.globalAlpha = 0.02;
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width/2, self.canvas.height/2, (WCRad * 2), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+		self.ctx.globalAlpha = .2;
+		self.ctx.globalCompositeOperation = 'lighter';
+		for (var i = 0; i < 40; i ++) {
+		var curveHeight = byteFreq[i*curveF] * 1.5;
+		if(byteFreq[i*curveF] > 0)
+		{
+		self.ctx.beginPath();
+		self.ctx.moveTo(450, 0);
+		self.ctx.bezierCurveTo(
+		
+		450 - (curveHeight * 5),
+		
+		(curveHeight/4) * 2,
+		
+		450 + (curveHeight * 5),
+		
+		((curveHeight * 3)/4) * 2,
+		
+		450,
+		
+		600);
+		self.ctx.moveTo(450, 0);
+		self.ctx.bezierCurveTo(
+		
+		450 + (curveHeight * 5),
+		
+		(curveHeight/4) * 2,
+		
+		450 - (curveHeight * 5),
+		
+		((curveHeight * 3)/4) * 2,
+		
+		450,
+		
+		600);
+		
+		self.ctx.lineWidth = 2;
+		self.ctx.stroke();
+		self.ctx.closePath();	
+		}
+	}
+	
+	}
+
+	if(document.querySelector("#Chelsea").checked == true)
+	{
+	document.querySelector("#Clear").checked = true;
+	self.ctx.globalCompositeOperation = 'source-over';
+	//Circles
+	for (var i = 0; i < MidCirc; i ++) {
+		self.ctx.globalAlpha = 0.03;
+		var CircRad = byteFreq[i*MidCirc]
+		self.ctx.fillStyle= getColor(255, 255, 255, 1);
+		
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width - Math.random()*1000, self.canvas.height - Math.random()*600, (CircRad/20), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+	for (var i = 0; i < 4; i ++) {
+		self.ctx.globalAlpha = 0.1;
+		var CircRad = byteFreq[i*MidCirc]
+		self.ctx.fillStyle = getColor(myRed, myGreen, myBlue, myAlpha);
+		
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width/2, self.canvas.height/2, (CircRad * 2), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+	
+	self.ctx.globalAlpha = 1;
+	//Triangles
+	for (var i = 0; i < self.Tris; i ++) {
+		var triHeight = byteFreq[i*triStep] * 1.5;
+
+		self.ctx.beginPath();
+		self.ctx.moveTo(i * (self.triBase + self.triGap), 0)
+		self.ctx.lineTo(i * (self.triBase + self.triGap) + (self.triBase/2),(triHeight* 5))
+		self.ctx.lineTo(i * (self.triBase + self.triGap) + (self.triBase), 0)
+		self.ctx.lineTo(i * (self.triBase + self.triGap), 0)
+		self.ctx.fillStyle = getColor( 1.5 * i, 255 - (1.5 * i), 255 - (1.5 * i), 1);
+		
+		self.ctx.fill();
+		self.ctx.closePath();
+    }
+	for (var i = 0; i < self.Tris; i ++) {
+		var triHeight = byteFreq[i*triStep] * 1.5;
+		
+		self.ctx.beginPath();
+		self.ctx.moveTo(self.canvas.width - (i * (self.triBase + self.triGap)),0)
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap) + (self.triBase/2)),(triHeight* 5))
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap) + (self.triBase)), 0)
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap)), 0)
+		self.ctx.fillStyle = getColor( 1.5 * i, 255 - (1.5 * i), 255 - (1.5 * i), 1);
+		
+		self.ctx.fill();
+		self.ctx.closePath();
+    }
+
+	//Blur Circles
+	for (var i = 0; i < BlurCirc; i ++) {
+		var WCRad = byteFreq[i*BlurCirc] * 1.5
+		self.ctx.fillStyle= "#FFFFFF";
+		
+		self.ctx.globalAlpha = 0.02;
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width/2, self.canvas.height/2, (WCRad * 2), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+	
+	for (var i = 0; i < 45; i ++) {
+		var squareLength = byteFreq[i*Squares]
+		self.ctx.fillStyle= getColor(((i * squareLength/6))/2, 255-((i * squareLength/6)/2), 0, 1);
+		self.ctx.globalAlpha = 1;
+		
+		self.ctx.fillRect(i * 10,600 - (((i * squareLength/6)) * .8),10,20);
+		
+	}
+	for (var i = 0; i < 45; i ++) {
+		var squareLength = byteFreq[i*Squares]
+		self.ctx.fillStyle= getColor(((i * squareLength/6))/2, 255-((i * squareLength/6)/2), 0, 1);
+		self.ctx.globalAlpha = 1;
+		
+		self.ctx.fillRect(900 - (i * 10),600 - (((i * squareLength/6)) * .8),10,20);
+		
+	}
+	
+	}
+
+	if(document.querySelector("#Custom").checked == true)
+	{
+	self.ctx.globalCompositeOperation = 'source-over';
+	if(document.querySelector("#Circles").checked == true)
+	{
+	//Circles
+	for (var i = 0; i < MidCirc; i ++) {
+		self.ctx.globalAlpha = 0.03;
+		var CircRad = byteFreq[i*MidCirc]
+		self.ctx.fillStyle= getColor(255, 255, 255, 1);
+		
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width - Math.random()*1000, self.canvas.height - Math.random()*600, (CircRad/20), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+	for (var i = 0; i < 4; i ++) {
+		self.ctx.globalAlpha = 0.1;
+		var CircRad = byteFreq[i*MidCirc]
+		self.ctx.fillStyle = getColor(myRed, myGreen, myBlue, myAlpha);
+		
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width/2, self.canvas.height/2, (CircRad * 2), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+	}	
+	if(document.querySelector("#Triangles").checked == true)
+	{
+	self.ctx.globalAlpha = 1;
+	//Triangles
+	for (var i = 0; i < self.Tris; i ++) {
+		var triHeight = byteFreq[i*triStep] * 1.5;
+
+		self.ctx.beginPath();
+		self.ctx.moveTo(i * (self.triBase + self.triGap),self.canvas.height + 100)
+		self.ctx.lineTo(i * (self.triBase + self.triGap) + (self.triBase/2),self.canvas.height - (triHeight* 5))
+		self.ctx.lineTo(i * (self.triBase + self.triGap) + (self.triBase), self.canvas.height + 5)
+		self.ctx.lineTo(i * (self.triBase + self.triGap), self.canvas.height + 100)
+		self.ctx.fillStyle = getColor( 1.5 * i, 255 - (1.5 * i), 255 - (1.5 * i), 1);
+		
+		self.ctx.fill();
+		self.ctx.closePath();
+    }
+	for (var i = 0; i < self.Tris; i ++) {
+		var triHeight = byteFreq[i*triStep] * 1.5;
+		
+		self.ctx.beginPath();
+		self.ctx.moveTo(self.canvas.width - (i * (self.triBase + self.triGap)),self.canvas.height + 100)
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap) + (self.triBase/2)),self.canvas.height - (triHeight* 5))
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap) + (self.triBase)), self.canvas.height + 5)
+		self.ctx.lineTo(self.canvas.width - (i * (self.triBase + self.triGap)), self.canvas.height + 100)
+		self.ctx.fillStyle = getColor( 1.5 * i, 255 - (1.5 * i), 255 - (1.5 * i), 1);
+		
+		self.ctx.fill();
+		self.ctx.closePath();
+    }
+	}
+	if(document.querySelector("#Curves").checked == true)
+	{
+	//Bezier Curves
+	self.ctx.globalAlpha = .2;
+	self.ctx.globalCompositeOperation = 'lighter';
+	for (var i = 0; i < 40; i ++) {
+		var curveHeight = byteFreq[i*curveF] * 1.5;
+		if(byteFreq[i*curveF] > 0)
+		{
+		self.ctx.beginPath();
+		self.ctx.moveTo(450, 0);
+		self.ctx.bezierCurveTo(
+		
+		450 - (curveHeight * 5),
+		
+		(curveHeight/4) * 2,
+		
+		450 + (curveHeight * 5),
+		
+		((curveHeight * 3)/4) * 2,
+		
+		450,
+		
+		600);
+		self.ctx.moveTo(450, 0);
+		self.ctx.bezierCurveTo(
+		
+		450 + (curveHeight * 5),
+		
+		(curveHeight/4) * 2,
+		
+		450 - (curveHeight * 5),
+		
+		((curveHeight * 3)/4) * 2,
+		
+		450,
+		
+		600);
+		
+		self.ctx.lineWidth = 2;
+		self.ctx.stroke();
+		self.ctx.closePath();	
+		}
+	}
+	}
+	if(document.querySelector("#Blur").checked == true)
+	{
+	//Blur Circles
+	for (var i = 0; i < BlurCirc; i ++) {
+		var WCRad = byteFreq[i*BlurCirc] * 1.5
+		self.ctx.fillStyle= "#FFFFFF";
+		
+		self.ctx.globalAlpha = 0.02;
+		self.ctx.beginPath();
+		self.ctx.arc(self.canvas.width/2, self.canvas.height/2, (WCRad * 2), 0, 2 * Math.PI, false);
+		self.ctx.fill();
+		self.ctx.closePath();
+	}
+	}
+	if(document.querySelector("#Squares").checked == true)
+	{
+	//Timed Squares
+	for (var i = 0; i < 4; i ++) {
+		var squareLength = byteFreq[i*Square] * 1.5
+		self.ctx.fillStyle= "#0000FF";
+		self.ctx.globalAlpha = .2;
+		
+		self.ctx.fillRect(0 + n,0 + t,20,20);
+		if(i == 1)
+		{
+		self.ctx.fillRect(0 + n,(600 - t) - 20,20,20);
+		}
+		if(i == 2)
+		{
+		self.ctx.fillRect((900 - n) - 20,(600 - t) - 20,20,20);
+		}
+		if(i == 3)
+		{
+		self.ctx.fillRect((900 - n) - 20,0 + t,20,20);
+		}
+		
+	}
+	
+	//Squares
+	for (var i = 0; i < 45; i ++) {
+		var squareLength = byteFreq[i*Squares]
+		self.ctx.fillStyle= getColor(((i * squareLength/6))/2, 255-((i * squareLength/6)/2), 0, 1);
+		self.ctx.globalAlpha = 1;
+		
+		self.ctx.fillRect(i * 10,600 - (((i * squareLength/6)) * .8),10,20);
+		
+	}
+	for (var i = 0; i < 45; i ++) {
+		var squareLength = byteFreq[i*Squares]
+		self.ctx.fillStyle= getColor(((i * squareLength/6))/2, 255-((i * squareLength/6)/2), 0, 1);
+		self.ctx.globalAlpha = 1;
+		
+		self.ctx.fillRect(900- (i * 10),600 - (((i * squareLength/6)) * .8),10,20);
+		
+	}
+	}
+	}
+	
+}
+}
+</script>
+<link rel="stylesheet" href="styles.css" />
+<link href="http://fonts.googleapis.com/css?family=Bubbler+One|Exo:700" rel="stylesheet" type="text/css">
+</head>
+<body>
+		<div id="nav">
+			<ul id="navlinks">
+				<li><a href="index.html">Our Project</a></li>
+				<li><a href="assignment.html">Assignment Overview</a></li>
+				<li><a href="makingIt.html">Making It</a></li>
+				<li><a href="progress.html">Progression</a></li>
+			</ul>
+		</div>
+		<header>New Media Web Tech II: Project 1</header>
+		<div id="content">
+			
+			<div id="container">
+				<div id="canvas-container">
+					<div id="info">
+						<p id="text">Drag and drop an mp3 file inside the white square to see and interact with visual effects. Once you have dragged an mp3 file start playing with the visuals by checking some boxes.</p>
+					</div>
+					<div id="canvasBox">
+						<canvas width=900 height=600 id="canvas" style="border: solid;"></canvas>
+					</div>
+				</div>
+			</div>
+			
+			<div id="controls">
+				<table>
+					<tr>
+						<td><label for="RedS">Red</label></td>
+						<td><input id="RedS" type ="range" min ="0" max="255" step ="1" value ="0"/></td>
+					</tr>
+						<td><label for="GreenS">Green</label></td>
+						<td><input id="GreenS" type ="range" min ="0" max="255" step ="1" value ="255"/></td>
+					</tr>
+					</tr>
+						<td><label for="BlueS">Blue</label></td>
+						<td><input id="BlueS" type ="range" min ="0" max="255" step ="1" value ="0"/></td>
+					</tr>
+					</tr>
+						<td><label for="AlphaS">Alpha</label></td>
+						<td><input id="AlphaS" type ="range" min ="0" max="1" step =".05" value ="1"/></td>
+					</tr>
+					</tr>
+						<td><label for="Lines">Lines</label></td>
+						<td><input id="Lines" type ="range" min ="1" max="40" step ="1" value ="4"/></td>
+					</tr>
+					</tr>
+						<td><label for="Clear">ClearRect</label></td>
+						<td><input id="Clear" value="Clear" type="checkbox" checked></td>
+					</tr>
+					</tr>
+						<td><label for="Basic">Basic</label></td>
+						<td><input id="Basic" value="Basic" type="checkbox" checked></td>
+					</tr>
+					</tr>
+						<td><label for="Normal">Normal</label></td>
+						<td><input id="Normal" value="Normal" type="checkbox"></td>
+					</tr>
+					</tr>
+						<td><label for="Advanced">Advanced</label></td>
+						<td><input id="Advanced" value="Advanced" type="checkbox"></td>
+					</tr>
+				 	</tr>
+						<td><label for="Aaron">Aaron's</label></td>
+						<td><input id="Aaron" value="Aaron" type="checkbox"></td>
+					</tr>
+					</tr>
+						<td><label for="Chelsea">Chelsea's</label></td>
+						<td><input id="Chelsea" value="Chelsea" type="checkbox"></td>
+					</tr>
+					</tr>
+						<td><label for="Custom">Custom</label></td>
+						<td><input id="Custom" value="Custom" type="checkbox"></td>
+					</tr>
+					</tr>
+						<td><label for="Circles">Circles</label></td>
+						<td><input id="Circles" value="Circles" type="checkbox"></td>
+					</tr>
+					</tr>
+						<td><label for="Triangles">Triangles</label></td>
+						<td><input id="Triangles" value="Triangles" type="checkbox"></td>
+					</tr>
+					</tr>
+						<td><label for="Curves">Curves</label></td>
+						<td><input id="Curves" value="Curves" type="checkbox"></td>
+					</tr>
+					</tr>
+						<td><label for="Blur">Blur</label></td>
+						<td><input id="Blur" value="Blur" type="checkbox"></td>
+					</tr>
+					</tr>
+						<td><label for="Squares">Squares</label></td>
+						<td><input id="Squares" value="Squares" type="checkbox"></td>
+					</tr>
+			</table>
+		</div>
+	</div>
+	<div id="footer">
+	
+	</div>
+</body>
+</html>

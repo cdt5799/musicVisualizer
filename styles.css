@@ -1,0 +1,100 @@
+html{
+	background: black;
+	color: white;
+}
+
+body{
+	font-family: 'Bubbler One', sans-serif;
+	font-weight: bold;
+}
+
+#content{
+	width: 1150px;
+	margin: auto;
+	margin-top: 100px;
+}
+
+#canvasBox{
+	float: left;
+	margin-top: 80px;
+}
+
+#stuff{
+	background-color: lightskyblue;
+	border-radius: 15px;
+	padding: 25px;
+}
+
+figure{
+	text-align:center;
+}
+
+h3{
+	color: darkblue;
+	font-size: 18pt;
+}
+
+
+#controls{
+	margin-left: 925px;
+	background: lightskyblue;
+	padding: 10px;
+	border-radius: 10px;
+}
+
+#info{
+	position: absolute;
+	background: lightskyblue;
+	border-radius: 10px;
+	padding: 0 15px;
+	width: 875px
+}
+
+#footer{
+	background-color: transparent;
+	background-image: url('music.jpg');
+	background-repeat: no-repeat;
+	background-attachment: scroll;
+	background-position: right bottom;
+	height: 500px;
+}
+
+header{
+	color: lightskyblue;
+	font-size: 3.3em;
+	font-variant: small-caps;
+	font-family: 'Exo', sans-serif;
+	font-weight: 700;
+}
+
+#nav{
+	height: 50px;
+	width: 100%;
+	position: absolute;
+	top: 60px;
+	left: 0px;
+	background: lightskyblue;
+}
+
+#navlinks 
+{
+	text-align: center;
+	list-style-type: none;	
+}
+
+#navlinks li 
+{
+	display: inline-block;
+	margin: 0 25px;
+}
+
+#navlinks li a 
+{
+	text-decoration: none;
+	color: white;
+}
+	
+#navlinks li a:hover
+{
+	text-decoration: underline;
+}
